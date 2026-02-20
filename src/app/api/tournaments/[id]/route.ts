@@ -18,6 +18,12 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({ error: 'Turnier nicht gefunden' }, { status: 404 });
   }
 
+  // Auto-generate scoreToken for existing password-protected tournaments without one
+  if (doc.password && !doc.scoreToken) {
+    doc.scoreToken = crypto.randomBytes(16).toString('hex');
+    await doc.save();
+  }
+
   // Passwort-Prüfung
   const authError = checkTournamentPassword(doc, req);
   if (authError) return authError;

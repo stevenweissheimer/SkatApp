@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { verifyPassword, getStoredPassword, getStoredScoreToken, setStoredScoreToken } from '@/lib/api';
 
 interface PasswordGateProps {
@@ -23,11 +22,14 @@ export default function PasswordGate({ tournamentId, children }: PasswordGatePro
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const searchParams = useSearchParams();
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
-    // Prüfe ob ein Score-Token in der URL ist (QR-Code-Zugang)
-    const urlToken = searchParams.get('token');
+    cancelledRef.current = false;
+
+    // Token direkt aus window.location lesen (vermeidet useSearchParams-Hydration-Timing)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
     if (urlToken) {
       setStoredScoreToken(tournamentId, urlToken);
       setState('ok');
@@ -44,9 +46,10 @@ export default function PasswordGate({ tournamentId, children }: PasswordGatePro
     // Prüfe ob wir schon ein gespeichertes Passwort haben das funktioniert
     const stored = getStoredPassword(tournamentId);
     if (stored) {
-      // Verify the stored password still works
       verifyPassword(tournamentId, stored).then((ok) => {
-        setState(ok ? 'ok' : 'needs-password');
+        if (!cancelledRef.current) {
+          setState(ok ? 'ok' : 'needs-password');
+        }
       });
     } else {
       // Check if tournament needs a password at all
@@ -55,18 +58,19 @@ export default function PasswordGate({ tournamentId, children }: PasswordGatePro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: '' }),
       }).then((res) => {
+        if (cancelledRef.current) return;
         if (res.ok) {
-          // No password needed
           setState('ok');
         } else {
           setState('needs-password');
         }
       }).catch(() => {
-        // If verify fails, try loading anyway
-        setState('ok');
+        if (!cancelledRef.current) setState('ok');
       });
     }
-  }, [tournamentId, searchParams]);
+
+    return () => { cancelledRef.current = true; };
+  }, [tournamentId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
