@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #1a1a2e;
+  --background: #f0f2f5;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+/* Number inputs: hide spinners */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Card glass effect */
+.glass-card {
+  @apply bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-white/60;
+}
+
+/* Score cell focus ring */
+.score-cell {
+  @apply transition-all duration-150 ease-out;
+}
+.score-cell:focus-within {
+  @apply ring-2 ring-emerald-400 ring-offset-1 rounded-md;
+}
+
+/* Table zebra + hover */
+.score-row {
+  @apply transition-colors duration-100;
+}
+.score-row:hover {
+  @apply bg-emerald-50/50;
+}
+.zebra-row:nth-child(even) {
+  @apply bg-gray-50/60;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide;
+}
+
+/* Progress bar glow */
+.progress-glow {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+/* Sticky table header */
+.sticky-thead th {
+  @apply sticky top-0 z-10;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-gray-300 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-400; }
+
+/* Print */
+@media print {
+  nav { display: none !important; }
+  .no-print, .print\:hidden { display: none !important; }
+  button { display: none !important; }
+  body { background: white !important; }
+  .glass-card { box-shadow: none; border: 1px solid #e5e7eb; }
+  main { padding: 0 !important; }
+}
