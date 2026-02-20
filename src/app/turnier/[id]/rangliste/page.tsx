@@ -6,6 +6,7 @@ import { useTournament } from '@/hooks/use-tournament';
 import { useTournamentStore } from '@/store/tournament-store';
 import Leaderboard from '@/components/Leaderboard';
 import { QRCodeSVG } from 'qrcode.react';
+import { isSeriesComplete } from '@/lib/scoring';
 
 export default function LeaderboardPage({
   params,
@@ -31,10 +32,11 @@ export default function LeaderboardPage({
     }
   }, [tournament]);
 
-  // Find the current active (non-completed) series
+  // Find the next series that still needs scores entered
+  // A series is "done" if it's officially completed OR all scores are filled in
   const activeSeries = useMemo(() => {
     if (!tournament) return null;
-    return tournament.series.find((s) => !s.completed) ?? null;
+    return tournament.series.find((s) => !s.completed && !isSeriesComplete(s)) ?? null;
   }, [tournament]);
 
   if (loading || !tournament) {
