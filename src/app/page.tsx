@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { listTournaments, deleteTournament, getStoredPassword, setStoredPassword, TournamentListItem } from '@/lib/api';
@@ -8,22 +8,35 @@ import { listTournaments, deleteTournament, getStoredPassword, setStoredPassword
 export default function HomePage() {
   const [tournaments, setTournaments] = useState<TournamentListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const router = useRouter();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async (query?: string) => {
     setLoading(true);
     try {
-      const list = await listTournaments();
+      const list = await listTournaments(query || undefined);
       setTournaments(list);
     } catch {
       // DB not available yet
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  /* Debounced search – 300 ms nach Eingabe */
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      load(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, load]);
 
   const handleDelete = async (id: string, name: string, hasPassword: boolean) => {
     if (!confirm(`Turnier "${name}" wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.`))
@@ -38,7 +51,7 @@ export default function HomePage() {
 
     try {
       await deleteTournament(id);
-      load();
+      load(search);
     } catch (e: any) {
       alert('Fehler beim Löschen: ' + (e.message || 'Unbekannter Fehler'));
     }
@@ -67,12 +80,33 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Suche */}
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">🔍</span>
+        <input
+          type="text"
+          placeholder="Turnier suchen (Name, Ort, Datum)…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-200 shadow-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none transition-all text-gray-700 placeholder:text-gray-400"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-lg"
+            title="Suche zurücksetzen"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Turnier-Liste */}
       {loading ? (
         <div className="text-center text-gray-400 py-12">
           <div className="animate-pulse">Turniere laden…</div>
         </div>
-      ) : tournaments.length === 0 ? (
+      ) : tournaments.length === 0 && !search ? (
         <div className="bg-white rounded-2xl shadow-md border p-12 text-center">
           <span className="text-5xl block mb-4">📋</span>
           <p className="text-gray-600 font-medium text-lg">Noch keine Turniere vorhanden</p>
@@ -80,11 +114,19 @@ export default function HomePage() {
             Lege dein erstes Turnier an, um loszulegen!
           </p>
         </div>
+      ) : tournaments.length === 0 && search ? (
+        <div className="bg-white rounded-2xl shadow-md border p-12 text-center">
+          <span className="text-5xl block mb-4">🔍</span>
+          <p className="text-gray-600 font-medium text-lg">Keine Treffer für &ldquo;{search}&rdquo;</p>
+          <p className="text-gray-400 text-sm mt-2">
+            Versuche einen anderen Suchbegriff.
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
             <span className="w-1.5 h-5 bg-emerald-500 rounded-full" />
-            Deine Turniere
+            Aktuelle Turniere
           </h2>
           {tournaments.map((t) => (
             <div

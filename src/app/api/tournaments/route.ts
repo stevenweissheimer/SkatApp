@@ -6,9 +6,25 @@ import { generateAllSeriesPlans } from '@/lib/planner';
 import { getDefaultPrizeRules } from '@/lib/prizes';
 
 /** GET /api/tournaments — Liste aller Turniere (nur Meta-Daten) */
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB();
-  const docs = await TournamentModel.find()
+
+  // Suchfilter aus Query-Parameter
+  const { searchParams } = new URL(req.url);
+  const query = searchParams.get('q')?.trim();
+
+  const filter: Record<string, unknown> = {};
+  if (query) {
+    // Suche nach Name, Ort oder Datum (case-insensitive)
+    const regex = { $regex: query, $options: 'i' };
+    filter.$or = [
+      { name: regex },
+      { location: regex },
+      { date: regex },
+    ];
+  }
+
+  const docs = await TournamentModel.find(filter)
     .select('name date location players seriesCount gamesPerSeries entryFee createdAt planGenerated password')
     .sort({ createdAt: -1 })
     .lean();

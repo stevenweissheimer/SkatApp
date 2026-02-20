@@ -76,9 +76,10 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 /* ===== API-Funktionen ===== */
 
-/** Alle Turniere als Liste */
-export function listTournaments(): Promise<TournamentListItem[]> {
-  return fetch(BASE).then((r) => handleResponse(r));
+/** Alle Turniere als Liste (optional mit Suchbegriff) */
+export function listTournaments(query?: string): Promise<TournamentListItem[]> {
+  const params = query ? `?q=${encodeURIComponent(query)}` : '';
+  return fetch(`${BASE}${params}`).then((r) => handleResponse(r));
 }
 
 /** Einzelnes Turnier laden */
