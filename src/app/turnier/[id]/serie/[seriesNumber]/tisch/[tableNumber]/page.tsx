@@ -96,9 +96,15 @@ export default function MobileTablePage({
     playerId: string,
     value: string,
   ) => {
-    const numVal = value === '' || value === '-' ? null : parseInt(value, 10);
-    if (value !== '' && value !== '-' && isNaN(numVal as number)) return;
+    const trimmed = value.trim();
+    const numVal = trimmed === '' || trimmed === '-' ? null : parseInt(trimmed, 10);
+    if (trimmed !== '' && trimmed !== '-' && isNaN(numVal as number)) return;
     updateScore(seriesNumber, tableNumber, gameNumber, playerId, numVal);
+  };
+
+  const toggleSign = (gameNumber: number, playerId: string, currentVal: number | null) => {
+    if (currentVal === null || currentVal === undefined || currentVal === 0) return;
+    updateScore(seriesNumber, tableNumber, gameNumber, playerId, -currentVal);
   };
 
   return (
@@ -229,29 +235,45 @@ export default function MobileTablePage({
                           {hasValue ? val : '–'}
                         </div>
                       ) : (
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          value={hasValue ? val! : ''}
-                          onChange={(e) =>
-                            handleScoreChange(game.gameNumber, pid, e.target.value)
-                          }
-                          className={`w-full px-2 py-2 text-center text-sm font-bold tabular-nums
-                            border rounded-lg
-                            focus:outline-none focus:ring-2 ${color.ring} focus:border-transparent
-                            placeholder:text-gray-300
-                            ${color.border}
-                            ${
-                              hasValue
-                                ? val! < 0
-                                  ? 'text-red-600 bg-red-50/50'
-                                  : val! > 0
-                                    ? 'text-emerald-700 bg-emerald-50/50'
-                                    : 'text-gray-600'
-                                : 'bg-white'
-                            }`}
-                          placeholder="–"
-                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="-?[0-9]*"
+                            value={hasValue ? val! : ''}
+                            onChange={(e) =>
+                              handleScoreChange(game.gameNumber, pid, e.target.value)
+                            }
+                            className={`w-full px-2 py-2 text-center text-sm font-bold tabular-nums
+                              border rounded-lg
+                              focus:outline-none focus:ring-2 ${color.ring} focus:border-transparent
+                              placeholder:text-gray-300
+                              ${color.border}
+                              ${
+                                hasValue
+                                  ? val! < 0
+                                    ? 'text-red-600 bg-red-50/50'
+                                    : val! > 0
+                                      ? 'text-emerald-700 bg-emerald-50/50'
+                                      : 'text-gray-600'
+                                  : 'bg-white'
+                              }`}
+                            placeholder="–"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleSign(game.gameNumber, pid, val ?? null)}
+                            className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold border transition-colors
+                              ${hasValue && val! < 0
+                                ? 'bg-red-100 border-red-300 text-red-600'
+                                : hasValue && val! > 0
+                                  ? 'bg-emerald-100 border-emerald-300 text-emerald-600'
+                                  : 'bg-gray-100 border-gray-200 text-gray-400'
+                              }`}
+                          >
+                            ±
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
