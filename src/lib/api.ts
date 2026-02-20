@@ -40,11 +40,27 @@ export function clearStoredPassword(tournamentId: string) {
   sessionStorage.removeItem(`skat-pw-${tournamentId}`);
 }
 
-/** Headers für turnierspezifische Requests (inkl. Passwort wenn vorhanden) */
+/* ===== Score-Token-Verwaltung (sessionStorage) ===== */
+
+/** Gespeicherten Score-Token für ein Turnier holen */
+export function getStoredScoreToken(tournamentId: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(`skat-token-${tournamentId}`);
+}
+
+/** Score-Token für ein Turnier speichern */
+export function setStoredScoreToken(tournamentId: string, token: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(`skat-token-${tournamentId}`, token);
+}
+
+/** Headers für turnierspezifische Requests (inkl. Passwort/Token wenn vorhanden) */
 function headersFor(tournamentId: string): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   const pw = getStoredPassword(tournamentId);
   if (pw) h['x-tournament-password'] = pw;
+  const token = getStoredScoreToken(tournamentId);
+  if (token) h['x-score-token'] = token;
   return h;
 }
 

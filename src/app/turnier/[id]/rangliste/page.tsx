@@ -101,7 +101,8 @@ export default function LeaderboardPage({
             {showQR && (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
                 {activeSeries.tables.map((table) => {
-                  const url = `${origin}/turnier/${id}/serie/${activeSeries.seriesNumber}/tisch/${table.tableNumber}`;
+                  const tokenParam = tournament.scoreToken ? `?token=${tournament.scoreToken}` : '';
+                  const url = `${origin}/turnier/${id}/serie/${activeSeries.seriesNumber}/tisch/${table.tableNumber}${tokenParam}`;
                   const playerNames = table.playerIds
                     .map((pid) => tournament.players.find((p) => p.id === pid)?.name ?? '?')
                     .join(', ');

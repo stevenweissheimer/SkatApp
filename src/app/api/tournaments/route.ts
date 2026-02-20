@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { connectDB } from '@/lib/db';
 import { TournamentModel, toPlainTournament } from '@/lib/models/tournament';
 import { generateAllSeriesPlans } from '@/lib/planner';
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
     organizerName,
     organizerContact,
     password: password || '',
+    scoreToken: password ? crypto.randomBytes(16).toString('hex') : '',
   });
 
   return NextResponse.json(toPlainTournament(doc), { status: 201 });

@@ -99,5 +99,6 @@ export function createDemoTournament(): Tournament {
     organizerName: 'Hans Müller',
     organizerContact: 'mueller@sk-eichberg.de',
     hasPassword: false,
+    scoreToken: '',
   };
 }

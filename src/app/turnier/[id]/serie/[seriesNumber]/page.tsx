@@ -163,7 +163,8 @@ export default function SeriesPage({
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {series.tables.map((table) => {
-              const url = `${baseUrl}/turnier/${id}/serie/${seriesNumber}/tisch/${table.tableNumber}`;
+              const tokenParam = tournament.scoreToken ? `?token=${tournament.scoreToken}` : '';
+              const url = `${baseUrl}/turnier/${id}/serie/${seriesNumber}/tisch/${table.tableNumber}${tokenParam}`;
               return (
                 <button
                   key={table.tableNumber}

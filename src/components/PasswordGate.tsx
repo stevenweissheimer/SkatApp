@@ -2,7 +2,8 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import Link from 'next/link';
-import { verifyPassword, getStoredPassword } from '@/lib/api';
+import { useSearchParams } from 'next/navigation';
+import { verifyPassword, getStoredPassword, getStoredScoreToken, setStoredScoreToken } from '@/lib/api';
 
 interface PasswordGateProps {
   tournamentId: string;
@@ -13,14 +14,33 @@ interface PasswordGateProps {
  * Wraps tournament pages. If the tournament requires a password and
  * the user hasn't entered it yet (or it's wrong), shows a password prompt.
  * Once verified, the password is stored in sessionStorage and children are rendered.
+ *
+ * If a ?token=... query parameter is present, it is stored as a score token
+ * and the password prompt is bypassed (for QR-Code access on mobile).
  */
 export default function PasswordGate({ tournamentId, children }: PasswordGateProps) {
   const [state, setState] = useState<'checking' | 'needs-password' | 'ok'>('checking');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Prüfe ob ein Score-Token in der URL ist (QR-Code-Zugang)
+    const urlToken = searchParams.get('token');
+    if (urlToken) {
+      setStoredScoreToken(tournamentId, urlToken);
+      setState('ok');
+      return;
+    }
+
+    // Prüfe ob wir schon einen gespeicherten Score-Token haben
+    const storedToken = getStoredScoreToken(tournamentId);
+    if (storedToken) {
+      setState('ok');
+      return;
+    }
+
     // Prüfe ob wir schon ein gespeichertes Passwort haben das funktioniert
     const stored = getStoredPassword(tournamentId);
     if (stored) {
@@ -46,7 +66,7 @@ export default function PasswordGate({ tournamentId, children }: PasswordGatePro
         setState('ok');
       });
     }
-  }, [tournamentId]);
+  }, [tournamentId, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

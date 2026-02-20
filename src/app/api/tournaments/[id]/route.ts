@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { connectDB } from '@/lib/db';
 import { TournamentModel, toPlainTournament } from '@/lib/models/tournament';
 import { generateAllSeriesPlans } from '@/lib/planner';
@@ -21,7 +22,15 @@ export async function GET(req: Request, { params }: Params) {
   const authError = checkTournamentPassword(doc, req);
   if (authError) return authError;
 
-  return NextResponse.json(toPlainTournament(doc));
+  const result = toPlainTournament(doc);
+
+  // Wenn Zugang nur über Score-Token (nicht Passwort): Token nicht im Response zurückgeben
+  const hasPassword = req.headers.get('x-tournament-password') === doc.password;
+  if (!hasPassword && doc.password) {
+    result.scoreToken = '';
+  }
+
+  return NextResponse.json(result);
 }
 
 /** PUT /api/tournaments/[id] — Turnier-Einstellungen aktualisieren */
@@ -77,6 +86,15 @@ export async function PUT(req: Request, { params }: Params) {
     if (body[key] !== undefined) {
       (doc as any)[key] = body[key];
     }
+  }
+
+  // Wenn Passwort gesetzt wird und noch kein Score-Token existiert → Token generieren
+  if (doc.password && !doc.scoreToken) {
+    doc.scoreToken = crypto.randomBytes(16).toString('hex');
+  }
+  // Wenn Passwort entfernt wird → Token auch entfernen
+  if (!doc.password) {
+    doc.scoreToken = '';
   }
 
   // Strukturelle Felder + Neu-Planung

@@ -69,6 +69,8 @@ export interface Tournament {
   organizerContact: string;
   /** Ob das Turnier passwortgeschützt ist */
   hasPassword: boolean;
+  /** Token für passwortfreien Score-Zugang (QR-Codes) */
+  scoreToken: string;
 }
 
 /* ===== Auswertungs-Typen ===== */

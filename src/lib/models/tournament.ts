@@ -86,6 +86,8 @@ export interface TournamentDocument extends Document {
   organizerContact: string;
   /** Optionales Passwort zum Schutz des Turniers */
   password: string;
+  /** Token für passwortfreien Score-Zugang (QR-Codes) */
+  scoreToken: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -108,6 +110,7 @@ const TournamentSchema = new Schema(
     organizerName: { type: String, default: '' },
     organizerContact: { type: String, default: '' },
     password: { type: String, default: '' },
+    scoreToken: { type: String, default: '' },
   },
   {
     timestamps: true,
@@ -156,6 +159,7 @@ export function toPlainTournament(doc: TournamentDocument): Tournament {
     organizerName: obj.organizerName,
     organizerContact: obj.organizerContact,
     hasPassword: !!obj.password,
+    scoreToken: obj.scoreToken || '',
     createdAt: obj.createdAt?.toISOString?.() ?? new Date().toISOString(),
   };
 }
