@@ -67,6 +67,8 @@ export interface Tournament {
   /** Kontaktinfo Turnierleiter */
   organizerName: string;
   organizerContact: string;
+  /** Ob das Turnier passwortgeschützt ist */
+  hasPassword: boolean;
 }
 
 /* ===== Auswertungs-Typen ===== */

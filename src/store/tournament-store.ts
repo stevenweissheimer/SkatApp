@@ -7,9 +7,11 @@ import { calculateByeAverage } from '@/lib/scoring';
 export function hasAnyScores(tournament: Tournament): boolean {
   return tournament.series.some((s) =>
     s.tables.some((t) =>
-      t.games.some((g) =>
-        Object.values(g.scores).some((v) => v !== null && v !== undefined),
-      ),
+      t.games.some((g) => {
+        const vals = Object.values(g.scores);
+        // Scores sind nur "eingetragen" wenn mindestens ein Wert eine echte Zahl ist (nicht null/undefined)
+        return vals.some((v) => typeof v === 'number');
+      }),
     ),
   );
 }

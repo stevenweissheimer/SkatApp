@@ -16,8 +16,39 @@ export interface TournamentListItem {
   seriesCount: number;
   gamesPerSeries: number;
   entryFee: number;
+  hasPassword: boolean;
   createdAt: string;
 }
+
+/* ===== Passwort-Verwaltung (sessionStorage) ===== */
+
+/** Gespeichertes Passwort für ein Turnier holen */
+export function getStoredPassword(tournamentId: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(`skat-pw-${tournamentId}`);
+}
+
+/** Passwort für ein Turnier speichern */
+export function setStoredPassword(tournamentId: string, password: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(`skat-pw-${tournamentId}`, password);
+}
+
+/** Gespeichertes Passwort löschen */
+export function clearStoredPassword(tournamentId: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(`skat-pw-${tournamentId}`);
+}
+
+/** Headers für turnierspezifische Requests (inkl. Passwort wenn vorhanden) */
+function headersFor(tournamentId: string): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const pw = getStoredPassword(tournamentId);
+  if (pw) h['x-tournament-password'] = pw;
+  return h;
+}
+
+/* ===== Hilfsfunktionen ===== */
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -27,6 +58,8 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+/* ===== API-Funktionen ===== */
+
 /** Alle Turniere als Liste */
 export function listTournaments(): Promise<TournamentListItem[]> {
   return fetch(BASE).then((r) => handleResponse(r));
@@ -34,7 +67,9 @@ export function listTournaments(): Promise<TournamentListItem[]> {
 
 /** Einzelnes Turnier laden */
 export function getTournament(id: string): Promise<Tournament> {
-  return fetch(`${BASE}/${id}`).then((r) => handleResponse(r));
+  return fetch(`${BASE}/${id}`, {
+    headers: headersFor(id),
+  }).then((r) => handleResponse(r));
 }
 
 /** Neues Turnier anlegen */
@@ -52,6 +87,7 @@ export function createTournament(data: {
   houseRules?: string;
   organizerName?: string;
   organizerContact?: string;
+  password?: string;
 }): Promise<Tournament> {
   return fetch(BASE, {
     method: 'POST',
@@ -63,20 +99,21 @@ export function createTournament(data: {
 /** Turnier-Einstellungen aktualisieren */
 export function updateTournament(
   id: string,
-  data: Partial<Tournament>,
+  data: Partial<Tournament> & { password?: string },
 ): Promise<Tournament> {
   return fetch(`${BASE}/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headersFor(id),
     body: JSON.stringify(data),
   }).then((r) => handleResponse(r));
 }
 
 /** Turnier löschen */
 export function deleteTournament(id: string): Promise<void> {
-  return fetch(`${BASE}/${id}`, { method: 'DELETE' }).then((r) =>
-    handleResponse(r),
-  );
+  return fetch(`${BASE}/${id}`, {
+    method: 'DELETE',
+    headers: headersFor(id),
+  }).then((r) => handleResponse(r));
 }
 
 /** Einzelnen Spielstand aktualisieren */
@@ -92,7 +129,7 @@ export function updateScore(
 ): Promise<{ ok: boolean }> {
   return fetch(`${BASE}/${tournamentId}/score`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headersFor(tournamentId),
     body: JSON.stringify(data),
   }).then((r) => handleResponse(r));
 }
@@ -104,6 +141,7 @@ export function completeSeries(
 ): Promise<Tournament> {
   return fetch(`${BASE}/${tournamentId}/series/${seriesNumber}/complete`, {
     method: 'PUT',
+    headers: headersFor(tournamentId),
   }).then((r) => handleResponse(r));
 }
 
@@ -114,5 +152,23 @@ export function reopenSeries(
 ): Promise<Tournament> {
   return fetch(`${BASE}/${tournamentId}/series/${seriesNumber}/reopen`, {
     method: 'PUT',
+    headers: headersFor(tournamentId),
   }).then((r) => handleResponse(r));
+}
+
+/** Passwort prüfen */
+export async function verifyPassword(
+  tournamentId: string,
+  password: string,
+): Promise<boolean> {
+  const res = await fetch(`${BASE}/${tournamentId}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+  if (res.ok) {
+    setStoredPassword(tournamentId, password);
+    return true;
+  }
+  return false;
 }

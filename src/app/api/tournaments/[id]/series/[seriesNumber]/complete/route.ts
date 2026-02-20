@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import { TournamentModel, toPlainTournament } from '@/lib/models/tournament';
 import { calculateByeAverage } from '@/lib/scoring';
+import { checkTournamentPassword } from '@/lib/auth';
 
 type Params = {
   params: Promise<{ id: string; seriesNumber: string }>;
@@ -11,7 +12,7 @@ type Params = {
  * PUT /api/tournaments/[id]/series/[seriesNumber]/complete
  * Schließt eine Serie ab (berechnet Aussetzer-Durchschnitt)
  */
-export async function PUT(_req: Request, { params }: Params) {
+export async function PUT(req: Request, { params }: Params) {
   const { id, seriesNumber: snStr } = await params;
   const seriesNumber = parseInt(snStr, 10);
 
@@ -20,6 +21,10 @@ export async function PUT(_req: Request, { params }: Params) {
   if (!doc) {
     return NextResponse.json({ error: 'Turnier nicht gefunden' }, { status: 404 });
   }
+
+  // Passwort-Prüfung
+  const authError = checkTournamentPassword(doc, req);
+  if (authError) return authError;
 
   const series = doc.series.find((s) => s.seriesNumber === seriesNumber);
   if (!series) {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Player, PrizeRule, PrizePreset } from '@/types';
 import { getDefaultPrizeRules, validatePrizeRules } from '@/lib/prizes';
-import { createTournament } from '@/lib/api';
+import { createTournament, setStoredPassword } from '@/lib/api';
 
 function generateId(): string {
   return (
@@ -26,6 +26,7 @@ export default function SetupWizard() {
   const [location, setLocation] = useState('');
   const [organizerName, setOrganizerName] = useState('');
   const [organizerContact, setOrganizerContact] = useState('');
+  const [password, setPassword] = useState('');
 
   // Schritt 2 – Einstellungen
   const [seriesCount, setSeriesCount] = useState(2);
@@ -132,7 +133,12 @@ export default function SetupWizard() {
         houseRules: houseRules.trim(),
         organizerName: organizerName.trim(),
         organizerContact: organizerContact.trim(),
+        password: password.trim() || undefined,
       });
+      // Passwort für den Ersteller speichern, damit er nicht ausgesperrt wird
+      if (password.trim()) {
+        setStoredPassword(tournament.id, password.trim());
+      }
       router.push(`/turnier/${tournament.id}`);
     } catch (e: any) {
       alert('Fehler beim Erstellen: ' + e.message);
@@ -264,6 +270,21 @@ export default function SetupWizard() {
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                🔒 Turnier-Passwort (optional)
+              </label>
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Leer lassen = kein Passwortschutz"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Wenn gesetzt, müssen alle Teilnehmer das Passwort eingeben, um das Turnier zu öffnen.
+              </p>
             </div>
           </div>
         )}
@@ -681,6 +702,12 @@ export default function SetupWizard() {
                   {numByes > 0 && `, ${numByes} Aussetzer/Serie`}
                 </p>
               </div>
+              {password.trim() && (
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <span className="text-gray-500 text-xs">🔒 Passwort</span>
+                  <p className="font-medium text-emerald-700">Geschützt</p>
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-50 p-3 rounded-lg">

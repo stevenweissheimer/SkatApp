@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import { TournamentModel, toPlainTournament } from '@/lib/models/tournament';
+import { checkTournamentPassword } from '@/lib/auth';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -17,8 +18,8 @@ export async function PUT(req: Request, { params }: Params) {
   const { id } = await params;
   await connectDB();
 
-  const { seriesNumber, tableNumber, gameNumber, playerId, score } =
-    await req.json();
+  const body = await req.json();
+  const { seriesNumber, tableNumber, gameNumber, playerId, score } = body;
 
   if (
     seriesNumber == null ||
@@ -39,6 +40,10 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 404 },
     );
   }
+
+  // Passwort-Prüfung
+  const authError = checkTournamentPassword(doc, req);
+  if (authError) return authError;
 
   // Find series, table, game
   const series = doc.series.find((s) => s.seriesNumber === seriesNumber);

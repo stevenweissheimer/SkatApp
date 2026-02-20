@@ -4,8 +4,9 @@ import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTournament } from '@/hooks/use-tournament';
 import { useTournamentStore, hasAnyScores } from '@/store/tournament-store';
-import { PrizePreset, PrizeRule } from '@/types';
+import { PrizePreset, PrizeRule, Player } from '@/types';
 import { getDefaultPrizeRules } from '@/lib/prizes';
+import { setStoredPassword, clearStoredPassword } from '@/lib/api';
 
 export default function SettingsPage({
   params,
@@ -16,13 +17,16 @@ export default function SettingsPage({
   const { tournament, loading } = useTournament(id);
   const updateSettings = useTournamentStore((s) => s.updateSettings);
 
-  const [tab, setTab] = useState<'allgemein' | 'preise' | 'regeln'>('allgemein');
+  const [tab, setTab] = useState<'allgemein' | 'struktur' | 'spieler' | 'preise' | 'regeln' | 'sicherheit'>('allgemein');
   const [saving, setSaving] = useState(false);
+  const [players, setPlayers] = useState<Player[]>([]);
 
   // Local form state
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [location, setLocation] = useState('');
+  const [seriesCount, setSeriesCount] = useState(2);
+  const [gamesPerSeries, setGamesPerSeries] = useState(24);
   const [entryFee, setEntryFee] = useState(0);
   const [extraPrizePool, setExtraPrizePool] = useState(0);
   const [prizePreset, setPrizePreset] = useState<PrizePreset>('top3');
@@ -30,6 +34,8 @@ export default function SettingsPage({
   const [houseRules, setHouseRules] = useState('');
   const [organizerName, setOrganizerName] = useState('');
   const [organizerContact, setOrganizerContact] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Sync local state when tournament loads
   useEffect(() => {
@@ -37,6 +43,8 @@ export default function SettingsPage({
       setName(tournament.name);
       setDate(tournament.date);
       setLocation(tournament.location);
+      setSeriesCount(tournament.seriesCount);
+      setGamesPerSeries(tournament.gamesPerSeries);
       setEntryFee(tournament.entryFee);
       setExtraPrizePool(tournament.extraPrizePool);
       setPrizePreset(tournament.prizePreset);
@@ -44,6 +52,7 @@ export default function SettingsPage({
       setHouseRules(tournament.houseRules);
       setOrganizerName(tournament.organizerName);
       setOrganizerContact(tournament.organizerContact);
+      setPlayers(tournament.players.map((p) => ({ ...p })));
     }
   }, [tournament]);
 
@@ -57,22 +66,45 @@ export default function SettingsPage({
     );
   }
 
+  const tournamentStarted = tournament ? hasAnyScores(tournament) : false;
+  const structuralChanged = tournament
+    ? seriesCount !== tournament.seriesCount || gamesPerSeries !== tournament.gamesPerSeries
+    : false;
+
   const handleSave = async () => {
+    if (structuralChanged) {
+      if (
+        !confirm(
+          'Achtung: Anzahl Serien oder Spiele pro Serie wurde geändert.\n\n' +
+          'Die Tischplanung wird komplett NEU generiert und alle bisherigen Zuordnungen gehen verloren.\n\n' +
+          'Fortfahren?',
+        )
+      ) {
+        return;
+      }
+    }
     setSaving(true);
-    await updateSettings({
-      name,
-      date,
-      location,
-      entryFee,
-      extraPrizePool,
-      prizePreset,
-      prizeRules,
-      houseRules,
-      organizerName,
-      organizerContact,
-    });
+    try {
+      await updateSettings({
+        name,
+        date,
+        location,
+        seriesCount,
+        gamesPerSeries,
+        entryFee,
+        extraPrizePool,
+        prizePreset,
+        prizeRules,
+        houseRules,
+        organizerName,
+        organizerContact,
+        players,
+      });
+      alert('Einstellungen gespeichert!');
+    } catch (e: any) {
+      alert('Fehler: ' + (e.message || 'Speichern fehlgeschlagen'));
+    }
     setSaving(false);
-    alert('Einstellungen gespeichert!');
   };
 
   const handlePresetChange = (preset: PrizePreset) => {
@@ -97,8 +129,11 @@ export default function SettingsPage({
 
   const tabs = [
     { key: 'allgemein' as const, label: 'Allgemein', icon: '📋' },
+    { key: 'struktur' as const, label: 'Struktur', icon: '🎯' },
+    { key: 'spieler' as const, label: 'Spieler', icon: '👥' },
     { key: 'preise' as const, label: 'Preise', icon: '💰' },
     { key: 'regeln' as const, label: 'Regeln', icon: '📜' },
+    { key: 'sicherheit' as const, label: 'Passwort', icon: '🔒' },
   ];
 
   return (
@@ -196,6 +231,128 @@ export default function SettingsPage({
                 placeholder="Tel. / E-Mail"
               />
             </div>
+          </>
+        )}
+
+        {tab === 'struktur' && (
+          <>
+            {tournamentStarted && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                <p className="text-sm text-amber-700 font-medium">
+                  ⚠️ Das Turnier hat bereits begonnen (Punkte wurden eingetragen). Serien und Spiele pro Serie können nicht mehr geändert werden.
+                </p>
+              </div>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Anzahl Serien
+                </label>
+                <input
+                  type="number"
+                  value={seriesCount}
+                  onChange={(e) => setSeriesCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                  min={1}
+                  max={20}
+                  disabled={tournamentStarted}
+                />
+                <p className="text-xs text-gray-400 mt-1">Üblich: 2 Serien für ein Tagesturnier</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Spiele pro Serie
+                </label>
+                <input
+                  type="number"
+                  value={gamesPerSeries}
+                  onChange={(e) => setGamesPerSeries(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                  min={1}
+                  max={99}
+                  disabled={tournamentStarted}
+                />
+                <p className="text-xs text-gray-400 mt-1">Üblich: 24 oder 36 Spiele pro Serie</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Einsatz pro Person (€)
+              </label>
+              <input
+                type="number"
+                value={entryFee}
+                onChange={(e) => setEntryFee(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                min={0}
+                step={0.5}
+              />
+            </div>
+            {structuralChanged && !tournamentStarted && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-700 font-medium">
+                  ℹ️ Serien-/Spielanzahl geändert – beim Speichern wird die Tischplanung neu generiert.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === 'spieler' && (
+          <>
+            <div className="mb-3">
+              <p className="text-sm text-gray-500">
+                Spielernamen, Verein und Notizen bearbeiten. Die Tischplanung bleibt bestehen.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {players.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className="flex flex-col sm:flex-row gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100"
+                >
+                  <div className="flex items-center gap-2 sm:w-8 shrink-0">
+                    <span className="text-xs font-bold text-gray-400">{idx + 1}</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={player.name}
+                    onChange={(e) => {
+                      const updated = [...players];
+                      updated[idx] = { ...updated[idx], name: e.target.value };
+                      setPlayers(updated);
+                    }}
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Name"
+                  />
+                  <input
+                    type="text"
+                    value={player.club}
+                    onChange={(e) => {
+                      const updated = [...players];
+                      updated[idx] = { ...updated[idx], club: e.target.value };
+                      setPlayers(updated);
+                    }}
+                    className="sm:w-40 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Verein"
+                  />
+                  <input
+                    type="text"
+                    value={player.note}
+                    onChange={(e) => {
+                      const updated = [...players];
+                      updated[idx] = { ...updated[idx], note: e.target.value };
+                      setPlayers(updated);
+                    }}
+                    className="sm:w-40 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Notiz"
+                  />
+                </div>
+              ))}
+            </div>
+            {players.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-4">Keine Spieler vorhanden.</p>
+            )}
           </>
         )}
 
@@ -307,6 +464,109 @@ export default function SettingsPage({
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent h-40 resize-y"
                 placeholder="z.B. Ramsch-Regeln, Bockrunden, etc."
               />
+            </div>
+          </>
+        )}
+
+        {tab === 'sicherheit' && (
+          <>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">🔒</span>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Passwortschutz</h3>
+                  <p className="text-sm text-gray-500">
+                    {tournament.hasPassword
+                      ? 'Dieses Turnier ist passwortgeschützt.'
+                      : 'Dieses Turnier ist nicht geschützt.'}
+                  </p>
+                </div>
+              </div>
+
+              {tournament.hasPassword && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+                  ⚠️ Das Turnier hat aktuell ein Passwort. Gib ein neues Passwort ein um es zu ändern,
+                  oder klicke &quot;Passwort entfernen&quot; um den Schutz aufzuheben.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {tournament.hasPassword ? 'Neues Passwort' : 'Passwort setzen'}
+                </label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={tournament.hasPassword ? 'Neues Passwort eingeben…' : 'Passwort eingeben…'}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+
+              {newPassword.trim() && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Passwort bestätigen
+                  </label>
+                  <input
+                    type="text"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Passwort wiederholen…"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  {confirmPassword && newPassword.trim() !== confirmPassword.trim() && (
+                    <p className="text-red-500 text-xs mt-1">Passwörter stimmen nicht überein</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                {newPassword.trim() && newPassword.trim() === confirmPassword.trim() && (
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        await updateSettings({ password: newPassword.trim() } as any);
+                        setStoredPassword(id, newPassword.trim());
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        alert('Passwort wurde gesetzt!');
+                      } catch (e: any) {
+                        alert('Fehler: ' + e.message);
+                      }
+                      setSaving(false);
+                    }}
+                    disabled={saving}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Speichern…' : '🔒 Passwort setzen'}
+                  </button>
+                )}
+
+                {tournament.hasPassword && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Passwortschutz wirklich entfernen?\nDas Turnier ist dann für alle zugänglich.')) return;
+                      setSaving(true);
+                      try {
+                        await updateSettings({ password: '' } as any);
+                        clearStoredPassword(id);
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        alert('Passwort wurde entfernt!');
+                      } catch (e: any) {
+                        alert('Fehler: ' + e.message);
+                      }
+                      setSaving(false);
+                    }}
+                    disabled={saving}
+                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
+                  >
+                    🗑️ Passwort entfernen
+                  </button>
+                )}
+              </div>
             </div>
           </>
         )}

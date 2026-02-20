@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { listTournaments, deleteTournament, TournamentListItem } from '@/lib/api';
+import { listTournaments, deleteTournament, getStoredPassword, setStoredPassword, TournamentListItem } from '@/lib/api';
 
 export default function HomePage() {
   const [tournaments, setTournaments] = useState<TournamentListItem[]>([]);
@@ -25,11 +25,23 @@ export default function HomePage() {
     load();
   }, []);
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string, hasPassword: boolean) => {
     if (!confirm(`Turnier "${name}" wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.`))
       return;
-    await deleteTournament(id);
-    load();
+
+    // Wenn passwortgeschützt und kein gespeichertes Passwort: abfragen
+    if (hasPassword && !getStoredPassword(id)) {
+      const pw = prompt('Dieses Turnier ist passwortgeschützt.\nBitte Passwort eingeben:');
+      if (!pw) return;
+      setStoredPassword(id, pw);
+    }
+
+    try {
+      await deleteTournament(id);
+      load();
+    } catch (e: any) {
+      alert('Fehler beim Löschen: ' + (e.message || 'Unbekannter Fehler'));
+    }
   };
 
   return (
@@ -85,7 +97,10 @@ export default function HomePage() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">{t.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-800">
+                      {t.hasPassword && <span title="Passwortgeschützt">🔒 </span>}
+                      {t.name}
+                    </h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
                       <span className="inline-flex items-center gap-1">
                         📅{' '}
@@ -113,7 +128,7 @@ export default function HomePage() {
                 <button
                   onClick={(e) => {
                     e.preventDefault();
-                    handleDelete(t.id, t.name);
+                    handleDelete(t.id, t.name, t.hasPassword);
                   }}
                   className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                 >

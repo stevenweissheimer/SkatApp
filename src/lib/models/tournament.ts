@@ -83,6 +83,8 @@ export interface TournamentDocument extends Document {
   houseRules: string;
   organizerName: string;
   organizerContact: string;
+  /** Optionales Passwort zum Schutz des Turniers */
+  password: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,6 +106,7 @@ const TournamentSchema = new Schema(
     houseRules: { type: String, default: '' },
     organizerName: { type: String, default: '' },
     organizerContact: { type: String, default: '' },
+    password: { type: String, default: '' },
   },
   {
     timestamps: true,
@@ -151,6 +154,7 @@ export function toPlainTournament(doc: TournamentDocument) {
     houseRules: obj.houseRules,
     organizerName: obj.organizerName,
     organizerContact: obj.organizerContact,
+    hasPassword: !!obj.password,
     createdAt: obj.createdAt?.toISOString?.() ?? new Date().toISOString(),
   };
 }

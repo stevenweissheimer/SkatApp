@@ -8,7 +8,7 @@ import { getDefaultPrizeRules } from '@/lib/prizes';
 export async function GET() {
   await connectDB();
   const docs = await TournamentModel.find()
-    .select('name date location players seriesCount gamesPerSeries entryFee createdAt planGenerated')
+    .select('name date location players seriesCount gamesPerSeries entryFee createdAt planGenerated password')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -21,6 +21,7 @@ export async function GET() {
     seriesCount: d.seriesCount,
     gamesPerSeries: d.gamesPerSeries,
     entryFee: d.entryFee,
+    hasPassword: !!d.password,
     createdAt: d.createdAt?.toISOString?.() ?? '',
   }));
 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     houseRules = '',
     organizerName = '',
     organizerContact = '',
+    password = '',
   } = body;
 
   if (!name || !date || !seriesCount || !gamesPerSeries || !players?.length) {
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
     houseRules,
     organizerName,
     organizerContact,
+    password: password || '',
   });
 
   return NextResponse.json(toPlainTournament(doc), { status: 201 });
