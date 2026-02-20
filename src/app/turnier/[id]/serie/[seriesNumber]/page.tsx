@@ -161,22 +161,36 @@ export default function SeriesPage({
           <p className="text-sm text-blue-600 mb-3">
             Teile diese Links mit den Spielern an jedem Tisch, um Ergebnisse direkt auf dem Handy einzutragen.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {series.tables.map((table) => {
               const tokenParam = tournament.scoreToken ? `?token=${tournament.scoreToken}` : '';
               const url = `${baseUrl}/turnier/${id}/serie/${seriesNumber}/tisch/${table.tableNumber}${tokenParam}`;
               return (
-                <button
+                <div
                   key={table.tableNumber}
-                  onClick={() => {
-                    navigator.clipboard?.writeText(url);
-                    alert(`Link für Tisch ${table.tableNumber} kopiert!`);
-                  }}
-                  className="bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2"
+                  className="bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-medium text-blue-700 flex items-center gap-2"
                 >
-                  <span className="font-bold">T{table.tableNumber}</span>
-                  <span className="text-blue-400">📋 Kopieren</span>
-                </button>
+                  <span className="font-bold shrink-0">T{table.tableNumber}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(url);
+                      alert(`Link für Tisch ${table.tableNumber} kopiert!`);
+                    }}
+                    className="hover:bg-blue-100 rounded px-2 py-1 transition-colors text-blue-500"
+                    title="Link kopieren"
+                  >
+                    📋 Kopieren
+                  </button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:bg-blue-100 rounded px-2 py-1 transition-colors text-blue-500"
+                    title="In neuem Tab öffnen"
+                  >
+                    ↗ Öffnen
+                  </a>
+                </div>
               );
             })}
           </div>
