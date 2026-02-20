@@ -6,6 +6,7 @@ import { getSeriesCompletionStats } from '@/lib/scoring';
 
 interface Props {
   tournament: Tournament;
+  tournamentId: string;
 }
 
 function playerName(tournament: Tournament, id: string): string {
@@ -15,9 +16,11 @@ function playerName(tournament: Tournament, id: string): string {
 function SeriesCard({
   series,
   tournament,
+  tournamentId,
 }: {
   series: Series;
   tournament: Tournament;
+  tournamentId: string;
 }) {
   const stats = getSeriesCompletionStats(series);
 
@@ -57,7 +60,7 @@ function SeriesCard({
           </div>
         </div>
         <Link
-          href={`/turnier/serie/${series.seriesNumber}`}
+          href={`/turnier/${tournamentId}/serie/${series.seriesNumber}`}
           className={`px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
             series.completed
               ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -80,7 +83,7 @@ function SeriesCard({
                 {table.playerIds.map((pid) => (
                   <Link
                     key={pid}
-                    href={`/turnier/spieler/${pid}`}
+                    href={`/turnier/${tournamentId}/spieler/${pid}`}
                     className="text-sm bg-emerald-50 text-emerald-800 px-3 py-1 rounded-lg font-medium hover:bg-emerald-100 transition-colors border border-emerald-100"
                   >
                     {playerName(tournament, pid)}
@@ -121,7 +124,7 @@ function SeriesCard({
   );
 }
 
-export default function SeriesPlanner({ tournament }: Props) {
+export default function SeriesPlanner({ tournament, tournamentId }: Props) {
   return (
     <div className="space-y-5">
       {tournament.series.map((series) => (
@@ -129,6 +132,7 @@ export default function SeriesPlanner({ tournament }: Props) {
           key={series.seriesNumber}
           series={series}
           tournament={tournament}
+          tournamentId={tournamentId}
         />
       ))}
     </div>

@@ -1,18 +1,19 @@
 'use client';
 
 import { Tournament } from '@/types';
-import { useTournamentStore } from '@/store/tournament-store';
 import { getLeaderboard } from '@/lib/scoring';
+import { deleteTournament } from '@/lib/api';
 import { useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Props {
   tournament: Tournament;
+  tournamentId: string;
 }
 
-export default function ExportImport({ tournament }: Props) {
-  const importTournament = useTournamentStore((s) => s.importTournament);
-  const resetTournament = useTournamentStore((s) => s.resetTournament);
+export default function ExportImport({ tournament, tournamentId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   /* ---- JSON Export ---- */
   const handleJsonExport = () => {
@@ -37,20 +38,14 @@ export default function ExportImport({ tournament }: Props) {
         const data = JSON.parse(event.target?.result as string);
 
         // Basis-Validierung
-        if (!data.id || !data.name || !data.players || !data.series) {
+        if (!data.name || !data.players || !data.series) {
           alert(
             'Ungültige Datei: Die JSON-Datei enthält kein gültiges Turnier.',
           );
           return;
         }
 
-        if (
-          confirm(
-            `Turnier "${data.name}" importieren?\nDas aktuelle Turnier wird dabei überschrieben.`,
-          )
-        ) {
-          importTournament(data);
-        }
+        alert('Import in der Server-Version: Bitte erstelle ein neues Turnier über "Neues Turnier anlegen".');
       } catch {
         alert('Fehler beim Lesen der Datei. Bitte eine gültige JSON-Datei verwenden.');
       }
@@ -98,14 +93,14 @@ export default function ExportImport({ tournament }: Props) {
   };
 
   /* ---- Reset ---- */
-  const handleReset = () => {
+  const handleReset = async () => {
     if (
       confirm(
-        'Turnier wirklich zurücksetzen?\nAlle Daten gehen verloren. Erstelle vorher einen JSON-Export!',
+        'Turnier wirklich löschen?\nAlle Daten gehen verloren. Erstelle vorher einen JSON-Export!',
       )
     ) {
-      resetTournament();
-      window.location.href = '/';
+      await deleteTournament(tournamentId);
+      router.push('/');
     }
   };
 
@@ -158,18 +153,17 @@ export default function ExportImport({ tournament }: Props) {
         </div>
       </div>
 
-      {/* Turnier zurücksetzen */}
+      {/* Turnier löschen */}
       <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6 space-y-4">
         <h2 className="text-lg font-semibold text-red-700">Gefahrenzone</h2>
         <p className="text-sm text-gray-600">
-          Setzt das Turnier zurück und löscht alle Daten. Diese Aktion kann
-          nicht rückgängig gemacht werden.
+          Löscht das Turnier unwiderruflich von der Datenbank. Erstelle vorher einen JSON-Export!
         </p>
         <button
           onClick={handleReset}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
-          🗑️ Turnier zurücksetzen
+          🗑️ Turnier löschen
         </button>
       </div>
     </div>

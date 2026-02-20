@@ -1,14 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Tournament, Player, PrizeRule, PrizePreset } from '@/types';
-import { generateAllSeriesPlans } from '@/lib/planner';
+import { Tournament } from '@/types';
+import * as api from '@/lib/api';
 import { calculateByeAverage } from '@/lib/scoring';
-import { createDemoTournament } from '@/lib/demo';
-import { getDefaultPrizeRules } from '@/lib/prizes';
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
 
 /** Prüft ob in irgendeiner Serie bereits Punkte eingetragen sind */
 export function hasAnyScores(tournament: Tournament): boolean {
@@ -23,263 +16,138 @@ export function hasAnyScores(tournament: Tournament): boolean {
 
 interface TournamentStore {
   tournament: Tournament | null;
+  loading: boolean;
+  error: string | null;
 
-  createAndGenerate: (data: {
-    name: string;
-    date: string;
-    location: string;
-    seriesCount: number;
-    gamesPerSeries: number;
-    entryFee: number;
-    players: Player[];
-    prizeRules: PrizeRule[];
-    prizePreset: PrizePreset;
-    extraPrizePool: number;
-    houseRules: string;
-    organizerName: string;
-    organizerContact: string;
-  }) => void;
+  /** Turnier vom Server laden */
+  loadTournament: (id: string) => Promise<void>;
 
-  resetTournament: () => void;
+  /** Turnier-Daten aktualisieren (re-fetch) */
+  refreshTournament: () => Promise<void>;
 
+  /** Turnier zurücksetzen (Store leeren) */
+  clearTournament: () => void;
+
+  /** Score aktualisieren (sendet an API, dann lokaler Optimistic Update) */
   updateScore: (
     seriesNumber: number,
     tableNumber: number,
     gameNumber: number,
     playerId: string,
     score: number | null,
-  ) => void;
+  ) => Promise<void>;
 
-  completeSeries: (seriesNumber: number) => void;
-  reopenSeries: (seriesNumber: number) => void;
+  /** Serie abschließen */
+  completeSeries: (seriesNumber: number) => Promise<void>;
 
-  updateSettings: (data: {
-    name: string;
-    date: string;
-    location: string;
-    entryFee: number;
-    prizeRules: PrizeRule[];
-    prizePreset: PrizePreset;
-    extraPrizePool: number;
-    houseRules: string;
-    organizerName: string;
-    organizerContact: string;
-  }) => void;
+  /** Serie wieder öffnen */
+  reopenSeries: (seriesNumber: number) => Promise<void>;
 
-  updatePlayersAndRegenerate: (
-    players: Player[],
-    seriesCount: number,
-    gamesPerSeries: number,
-  ) => void;
-
-  updateSeriesNotes: (seriesNumber: number, notes: string) => void;
-
-  /** Setzt alle Ergebnisse & Serien zurück, behält Spieler & Plan */
-  resetAllScores: () => void;
-
-  importTournament: (tournament: Tournament) => void;
-  loadDemo: () => void;
+  /** Einstellungen aktualisieren */
+  updateSettings: (data: Partial<Tournament>) => Promise<void>;
 }
 
-export const useTournamentStore = create<TournamentStore>()(
-  persist(
-    (set, get) => ({
-      tournament: null,
+export const useTournamentStore = create<TournamentStore>()((set, get) => ({
+  tournament: null,
+  loading: false,
+  error: null,
 
-      createAndGenerate: (data) => {
-        const series = generateAllSeriesPlans(
-          data.players,
-          data.seriesCount,
-          data.gamesPerSeries,
-        );
-        set({
-          tournament: {
-            id: generateId(),
-            name: data.name,
-            date: data.date,
-            location: data.location,
-            seriesCount: data.seriesCount,
-            gamesPerSeries: data.gamesPerSeries,
-            entryFee: data.entryFee,
-            players: data.players,
-            series,
-            planGenerated: true,
-            createdAt: new Date().toISOString(),
-            prizeRules: data.prizeRules,
-            prizePreset: data.prizePreset,
-            extraPrizePool: data.extraPrizePool,
-            houseRules: data.houseRules,
-            organizerName: data.organizerName,
-            organizerContact: data.organizerContact,
-          },
-        });
-      },
+  loadTournament: async (id: string) => {
+    set({ loading: true, error: null });
+    try {
+      const tournament = await api.getTournament(id);
+      set({ tournament, loading: false });
+    } catch (e: any) {
+      set({ error: e.message, loading: false });
+    }
+  },
 
-      resetTournament: () => {
-        set({ tournament: null });
-      },
+  refreshTournament: async () => {
+    const { tournament } = get();
+    if (!tournament) return;
+    try {
+      const fresh = await api.getTournament(tournament.id);
+      set({ tournament: fresh });
+    } catch {
+      // Silently fail refresh — don't break UI
+    }
+  },
 
-      updateScore: (seriesNumber, tableNumber, gameNumber, playerId, score) => {
-        const { tournament } = get();
-        if (!tournament) return;
+  clearTournament: () => {
+    set({ tournament: null, error: null });
+  },
 
-        const newSeries = tournament.series.map((s) => {
-          if (s.seriesNumber !== seriesNumber) return s;
+  updateScore: async (seriesNumber, tableNumber, gameNumber, playerId, score) => {
+    const { tournament } = get();
+    if (!tournament) return;
+
+    // Optimistic local update
+    const newSeries = tournament.series.map((s) => {
+      if (s.seriesNumber !== seriesNumber) return s;
+      return {
+        ...s,
+        tables: s.tables.map((t) => {
+          if (t.tableNumber !== tableNumber) return t;
           return {
-            ...s,
-            tables: s.tables.map((t) => {
-              if (t.tableNumber !== tableNumber) return t;
-              return {
-                ...t,
-                games: t.games.map((g) => {
-                  if (g.gameNumber !== gameNumber) return g;
-                  return {
-                    ...g,
-                    scores: { ...g.scores, [playerId]: score },
-                  };
-                }),
-              };
+            ...t,
+            games: t.games.map((g) => {
+              if (g.gameNumber !== gameNumber) return g;
+              return { ...g, scores: { ...g.scores, [playerId]: score } };
             }),
           };
-        });
+        }),
+      };
+    });
+    set({ tournament: { ...tournament, series: newSeries } });
 
-        set({ tournament: { ...tournament, series: newSeries } });
-      },
+    // Send to server
+    try {
+      await api.updateScore(tournament.id, {
+        seriesNumber,
+        tableNumber,
+        gameNumber,
+        playerId,
+        score,
+      });
+    } catch (e: any) {
+      // Revert on error
+      set({ tournament, error: e.message });
+    }
+  },
 
-      completeSeries: (seriesNumber) => {
-        const { tournament } = get();
-        if (!tournament) return;
+  completeSeries: async (seriesNumber) => {
+    const { tournament } = get();
+    if (!tournament) return;
 
-        const newSeries = tournament.series.map((s) => {
-          if (s.seriesNumber !== seriesNumber) return s;
-          const byeAvg = calculateByeAverage(s, tournament.players);
-          return { ...s, completed: true, byeAverageScore: byeAvg };
-        });
+    try {
+      const updated = await api.completeSeries(tournament.id, seriesNumber);
+      set({ tournament: updated });
+    } catch (e: any) {
+      set({ error: e.message });
+    }
+  },
 
-        set({ tournament: { ...tournament, series: newSeries } });
-      },
+  reopenSeries: async (seriesNumber) => {
+    const { tournament } = get();
+    if (!tournament) return;
 
-      reopenSeries: (seriesNumber) => {
-        const { tournament } = get();
-        if (!tournament) return;
+    try {
+      const updated = await api.reopenSeries(tournament.id, seriesNumber);
+      set({ tournament: updated });
+    } catch (e: any) {
+      set({ error: e.message });
+    }
+  },
 
-        const newSeries = tournament.series.map((s) => {
-          if (s.seriesNumber !== seriesNumber) return s;
-          return { ...s, completed: false, byeAverageScore: null };
-        });
+  updateSettings: async (data) => {
+    const { tournament } = get();
+    if (!tournament) return;
 
-        set({ tournament: { ...tournament, series: newSeries } });
-      },
-
-      updateSettings: (data) => {
-        const { tournament } = get();
-        if (!tournament) return;
-        set({
-          tournament: {
-            ...tournament,
-            name: data.name,
-            date: data.date,
-            location: data.location,
-            entryFee: data.entryFee,
-            prizeRules: data.prizeRules,
-            prizePreset: data.prizePreset,
-            extraPrizePool: data.extraPrizePool,
-            houseRules: data.houseRules,
-            organizerName: data.organizerName,
-            organizerContact: data.organizerContact,
-          },
-        });
-      },
-
-      updatePlayersAndRegenerate: (players, seriesCount, gamesPerSeries) => {
-        const { tournament } = get();
-        if (!tournament) return;
-        if (hasAnyScores(tournament)) return;
-
-        const series = generateAllSeriesPlans(
-          players,
-          seriesCount,
-          gamesPerSeries,
-        );
-
-        set({
-          tournament: {
-            ...tournament,
-            players,
-            seriesCount,
-            gamesPerSeries,
-            series,
-          },
-        });
-      },
-
-      updateSeriesNotes: (seriesNumber, notes) => {
-        const { tournament } = get();
-        if (!tournament) return;
-
-        const newSeries = tournament.series.map((s) =>
-          s.seriesNumber === seriesNumber ? { ...s, notes } : s,
-        );
-
-        set({ tournament: { ...tournament, series: newSeries } });
-      },
-
-      resetAllScores: () => {
-        const { tournament } = get();
-        if (!tournament) return;
-
-        const freshSeries = generateAllSeriesPlans(
-          tournament.players,
-          tournament.seriesCount,
-          tournament.gamesPerSeries,
-        );
-        // Preserve notes
-        for (let i = 0; i < freshSeries.length; i++) {
-          if (tournament.series[i]?.notes) {
-            freshSeries[i].notes = tournament.series[i].notes;
-          }
-        }
-        set({ tournament: { ...tournament, series: freshSeries } });
-      },
-
-      importTournament: (tournament) => {
-        const migrated = {
-          ...tournament,
-          prizeRules: tournament.prizeRules ?? getDefaultPrizeRules('top3'),
-          prizePreset: tournament.prizePreset ?? ('top3' as const),
-          extraPrizePool: tournament.extraPrizePool ?? 0,
-          houseRules: tournament.houseRules ?? '',
-          organizerName: tournament.organizerName ?? '',
-          organizerContact: tournament.organizerContact ?? '',
-          series: tournament.series.map((s) => ({
-            ...s,
-            notes: s.notes ?? '',
-          })),
-        };
-        set({ tournament: migrated });
-      },
-
-      loadDemo: () => {
-        set({ tournament: createDemoTournament() });
-      },
-    }),
-    {
-      name: 'skat-turnier-storage',
-      onRehydrateStorage: () => (state) => {
-        // Migrate old tournaments loaded from localStorage
-        if (state?.tournament) {
-          const t = state.tournament;
-          if (!t.prizeRules) t.prizeRules = getDefaultPrizeRules('top3');
-          if (!t.prizePreset) t.prizePreset = 'top3';
-          if (t.extraPrizePool === undefined) t.extraPrizePool = 0;
-          if (!t.houseRules) t.houseRules = '';
-          if (!t.organizerName) t.organizerName = '';
-          if (!t.organizerContact) t.organizerContact = '';
-          for (const s of t.series) {
-            if (s.notes === undefined) s.notes = '';
-          }
-        }
-      },
-    },
-  ),
-);
+    try {
+      const updated = await api.updateTournament(tournament.id, data);
+      set({ tournament: updated });
+    } catch (e: any) {
+      set({ error: e.message });
+    }
+  },
+}));

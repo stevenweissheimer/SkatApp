@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 
 interface Props {
   tournament: Tournament;
+  tournamentId: string;
 }
 
 const RANK_STYLES: Record<number, string> = {
@@ -16,7 +17,7 @@ const RANK_STYLES: Record<number, string> = {
   3: 'bg-gradient-to-r from-orange-50 to-amber-50 border-l-4 border-l-amber-600',
 };
 
-export default function Leaderboard({ tournament }: Props) {
+export default function Leaderboard({ tournament, tournamentId }: Props) {
   const entries = useMemo(() => getLeaderboard(tournament), [tournament]);
   const totalPool = useMemo(() => getTotalPrizePool(tournament), [tournament]);
   const showPrizes = totalPool > 0;
@@ -82,7 +83,7 @@ export default function Leaderboard({ tournament }: Props) {
                 </td>
                 <td className="px-4 py-3">
                   <Link
-                    href={`/turnier/spieler/${entry.player.id}`}
+                    href={`/turnier/${tournamentId}/spieler/${entry.player.id}`}
                     className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline transition-colors"
                   >
                     {entry.player.name}

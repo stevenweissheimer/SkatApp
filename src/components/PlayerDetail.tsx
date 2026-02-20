@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 interface Props {
   tournament: Tournament;
   player: Player;
+  tournamentId: string;
 }
 
 interface CoPlayerInfo {
@@ -15,7 +16,7 @@ interface CoPlayerInfo {
   count: number;
 }
 
-export default function PlayerDetail({ tournament, player }: Props) {
+export default function PlayerDetail({ tournament, player, tournamentId }: Props) {
   const stats = useMemo(() => {
     const seriesData = tournament.series.map((series) => {
       const isBye = series.byePlayerIds.includes(player.id);
@@ -248,7 +249,7 @@ export default function PlayerDetail({ tournament, player }: Props) {
               className="px-4 py-2 flex items-center justify-between"
             >
               <Link
-                href={`/turnier/spieler/${cp.id}`}
+                href={`/turnier/${tournamentId}/spieler/${cp.id}`}
                 className="text-sm text-emerald-700 hover:underline"
               >
                 {cp.name}

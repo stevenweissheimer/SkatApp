@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTournamentStore } from '@/store/tournament-store';
 import { Player, PrizeRule, PrizePreset } from '@/types';
 import { getDefaultPrizeRules, validatePrizeRules } from '@/lib/prizes';
+import { createTournament } from '@/lib/api';
 
 function generateId(): string {
   return (
@@ -14,7 +14,7 @@ function generateId(): string {
 
 export default function SetupWizard() {
   const router = useRouter();
-  const createAndGenerate = useTournamentStore((s) => s.createAndGenerate);
+  const [generating, setGenerating] = useState(false);
 
   const [step, setStep] = useState(1);
 
@@ -115,23 +115,29 @@ export default function SetupWizard() {
     }
   };
 
-  const handleGenerate = () => {
-    createAndGenerate({
-      name: name.trim(),
-      date,
-      location: location.trim(),
-      seriesCount,
-      gamesPerSeries,
-      entryFee,
-      players,
-      prizeRules,
-      prizePreset,
-      extraPrizePool,
-      houseRules: houseRules.trim(),
-      organizerName: organizerName.trim(),
-      organizerContact: organizerContact.trim(),
-    });
-    router.push('/turnier');
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const tournament = await createTournament({
+        name: name.trim(),
+        date,
+        location: location.trim(),
+        seriesCount,
+        gamesPerSeries,
+        entryFee,
+        players,
+        prizeRules,
+        prizePreset,
+        extraPrizePool,
+        houseRules: houseRules.trim(),
+        organizerName: organizerName.trim(),
+        organizerContact: organizerContact.trim(),
+      });
+      router.push(`/turnier/${tournament.id}`);
+    } catch (e: any) {
+      alert('Fehler beim Erstellen: ' + e.message);
+      setGenerating(false);
+    }
   };
 
   /* ---- Preis-Presets ---- */
@@ -695,9 +701,10 @@ export default function SetupWizard() {
 
             <button
               onClick={handleGenerate}
-              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors text-lg"
+              disabled={generating}
+              className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors text-lg disabled:opacity-50 disabled:cursor-wait"
             >
-              🎯 Tischplan erstellen & Turnier starten
+              {generating ? '⏳ Wird erstellt…' : '🎯 Tischplan erstellen & Turnier starten'}
             </button>
           </div>
         )}
