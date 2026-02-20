@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import type { Tournament } from '@/types';
 
 /* ===== Sub-Schemas ===== */
 
@@ -117,7 +118,7 @@ const TournamentSchema = new Schema(
  * Convert Mongoose document to plain Tournament object matching our TS types.
  * Handles Map → Record conversion for game scores.
  */
-export function toPlainTournament(doc: TournamentDocument) {
+export function toPlainTournament(doc: TournamentDocument): Tournament {
   const obj = doc.toObject({ versionKey: false });
 
   return {

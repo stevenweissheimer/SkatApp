@@ -98,5 +98,6 @@ export function createDemoTournament(): Tournament {
     houseRules: 'Gespielt wird nach den Regeln der DSkV.\nAussetzer erhalten den Seriendurchschnitt.',
     organizerName: 'Hans Müller',
     organizerContact: 'mueller@sk-eichberg.de',
+    hasPassword: false,
   };
 }
